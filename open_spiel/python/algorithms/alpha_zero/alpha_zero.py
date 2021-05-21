@@ -55,6 +55,8 @@ from open_spiel.python.utils import file_logger
 from open_spiel.python.utils import spawn
 from open_spiel.python.utils import stats
 
+from open_spiel.python.games.tic_tac_toe import TicTacToeGame
+
 # Time to wait for processes to join.
 JOIN_WAIT_DELAY = 0.001
 
@@ -487,7 +489,8 @@ def learner(*, game, config, actors, evaluators, broadcast_fn, logger):
 
 def alpha_zero(config: Config):
   """Start all the worker processes for a full alphazero setup."""
-  game = pyspiel.load_game(config.game)
+  # game = pyspiel.load_game(config.game)
+  game = TicTacToeGame()
   config = config._replace(
       observation_shape=game.observation_tensor_shape(),
       output_size=game.num_distinct_actions())

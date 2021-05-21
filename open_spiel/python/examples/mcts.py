@@ -34,6 +34,7 @@ from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
+from open_spiel.python.games.tic_tac_toe import TicTacToeGame
 
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
@@ -190,7 +191,8 @@ def _play_game(game, bots, initial_actions):
 
 
 def main(argv):
-  game = pyspiel.load_game(FLAGS.game)
+  # game = pyspiel.load_game(FLAGS.game)
+  game = TicTacToeGame()
   if game.num_players() > 2:
     sys.exit("This game requires more players than the example can handle.")
   bots = [

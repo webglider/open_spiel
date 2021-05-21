@@ -100,12 +100,20 @@ class TicTacToeState(pyspiel.State):
 
   def _legal_actions(self, player):
     """Returns a list of legal actions, sorted in ascending order."""
-    return [a for a in range(_NUM_CELLS) if self.board[_coord(a)] == "."]
+    # return [a for a in range(_NUM_CELLS) if self.board[_coord(a)] == "."]
+    return [a for a in range(_NUM_CELLS)]
 
   def _apply_action(self, action):
     """Applies the specified action to the state."""
+    illegal = False
+    if self.board[_coord(action)] != ".":
+      illegal = True
+      
     self.board[_coord(action)] = "x" if self._cur_player == 0 else "o"
-    if _line_exists(self.board):
+    if illegal:
+      self._is_terminal = True
+      self._player0_score = -1.0 if self._cur_player == 0 else 1.0
+    elif _line_exists(self.board):
       self._is_terminal = True
       self._player0_score = 1.0 if self._cur_player == 0 else -1.0
     elif all(self.board.ravel() != "."):
