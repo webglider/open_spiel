@@ -490,7 +490,11 @@ def learner(*, game, config, actors, evaluators, broadcast_fn, logger):
 def alpha_zero(config: Config):
   """Start all the worker processes for a full alphazero setup."""
   # game = pyspiel.load_game(config.game)
-  game = TicTacToeGame()
+  game = TicTacToeGame(game_type=config.game)
+  print('num d actions')
+  print(game.num_distinct_actions())
+  print('obs tensor shape')
+  print(game.observation_tensor_shape())
   config = config._replace(
       observation_shape=game.observation_tensor_shape(),
       output_size=game.num_distinct_actions())

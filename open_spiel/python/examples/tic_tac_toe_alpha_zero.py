@@ -27,12 +27,13 @@ from open_spiel.python.algorithms.alpha_zero import alpha_zero
 from open_spiel.python.utils import spawn
 
 flags.DEFINE_string("path", None, "Where to save checkpoints.")
+flags.DEFINE_string("game_type", None, "TTT Game type.")
 FLAGS = flags.FLAGS
 
 
 def main(unused_argv):
   config = alpha_zero.Config(
-      game="tic_tac_toe",
+      game=FLAGS.game_type,
       path=FLAGS.path,
       learning_rate=0.01,
       weight_decay=1e-4,
@@ -40,7 +41,7 @@ def main(unused_argv):
       replay_buffer_size=2**14,
       replay_buffer_reuse=4,
       max_steps=25,
-      checkpoint_freq=25,
+      checkpoint_freq=1,
 
       actors=4,
       evaluators=4,

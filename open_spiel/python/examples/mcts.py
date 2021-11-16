@@ -36,6 +36,8 @@ from open_spiel.python.bots import uniform_random
 import pyspiel
 from open_spiel.python.games.tic_tac_toe import TicTacToeGame
 
+from ttt_minimax import MinimaxBot
+
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
     "mcts",
@@ -52,7 +54,9 @@ _KNOWN_PLAYERS = [
 
     # Run an alpha_zero checkpoint with MCTS. Uses the specified UCT/sims.
     # Requires the az_path flag.
-    "az"
+    "az",
+
+    "minimax"
 ]
 
 flags.DEFINE_string("game", "tic_tac_toe", "Name of the game.")
@@ -71,6 +75,10 @@ flags.DEFINE_bool("random_first", False, "Play the first move randomly.")
 flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
+
+flags.DEFINE_string("tree_file", "tree_tactoe_3x3.pkl", "Path to minimax tree")
+flags.DEFINE_integer("rand_moves", 0, "Number if initial random moves")
+flags.DEFINE_bool("oracle", False, "minimax oracle")
 
 FLAGS = flags.FLAGS
 
@@ -114,6 +122,8 @@ def _init_bot(bot_type, game, player_id):
     for cmd in FLAGS.gtp_cmd:
       bot.gtp_cmd(cmd)
     return bot
+  if bot_type == "minimax":
+    return MinimaxBot(game, FLAGS.game, FLAGS.tree_file)
   raise ValueError("Invalid bot type: %s" % bot_type)
 
 
@@ -124,7 +134,7 @@ def _get_action(state, action_str):
   return None
 
 
-def _play_game(game, bots, initial_actions):
+def _play_game(game, bots, initial_actions, oracle_bot=None):
   """Plays one game."""
   state = game.new_initial_state()
   _opt_print("Initial state:\n{}".format(state))
@@ -134,7 +144,7 @@ def _play_game(game, bots, initial_actions):
   if FLAGS.random_first:
     assert not initial_actions
     initial_actions = [state.action_to_string(
-        state.current_player(), random.choice(state.legal_actions()))]
+        state.current_player(), random.choice(state.legal_actions_real(state.current_player())))]
 
   for action_str in initial_actions:
     action = _get_action(state, action_str)
@@ -144,9 +154,38 @@ def _play_game(game, bots, initial_actions):
     history.append(action_str)
     for bot in bots:
       bot.inform_action(state, state.current_player(), action)
+    if FLAGS.oracle:
+      oracle_bot.inform_action(state, state.current_player(), action)
     state.apply_action(action)
     _opt_print("Forced action", action_str)
     _opt_print("Next state:\n{}".format(state))
+
+  winnable = [False, False]
+  for _ in range(FLAGS.rand_moves):
+    action = random.choice(state.legal_actions_real(state.current_player()))
+    if action is None:
+      sys.exit("Invalid action: no legal action")
+
+    action_str = state.action_to_string(state.current_player(), action)
+    history.append(action_str)
+    for bot in bots:
+      bot.inform_action(state, state.current_player(), action)
+    if FLAGS.oracle:
+      oracle_bot.inform_action(state, state.current_player(), action)
+    state.apply_action(action)
+    _opt_print("Forced action", action_str)
+    _opt_print("Next state:\n{}".format(state))
+
+  if FLAGS.oracle:
+    can_win = oracle_bot.who_can_win()
+    if(can_win == 0):
+      winnable[0] = True
+    if(can_win == 1):
+      winnable[1] = True
+
+    if can_win != None:
+      print('Winnable', can_win)
+
 
   while not state.is_terminal():
     current_player = state.current_player()
@@ -187,30 +226,41 @@ def _play_game(game, bots, initial_actions):
   for bot in bots:
     bot.restart()
 
-  return returns, history
+  if FLAGS.oracle:
+    oracle_bot.restart()
+
+  return returns, history, winnable[0], winnable[1]
 
 
 def main(argv):
   # game = pyspiel.load_game(FLAGS.game)
-  game = TicTacToeGame()
+  game = TicTacToeGame(game_type=FLAGS.game)
   if game.num_players() > 2:
     sys.exit("This game requires more players than the example can handle.")
   bots = [
       _init_bot(FLAGS.player1, game, 0),
       _init_bot(FLAGS.player2, game, 1),
   ]
+  oracle_bot = None
+  if FLAGS.oracle:
+    oracle_bot = MinimaxBot(game, FLAGS.game, FLAGS.tree_file)
   histories = collections.defaultdict(int)
   overall_returns = [0, 0]
   overall_wins = [0, 0]
+  overall_winnable = [0, 0]
   game_num = 0
   try:
     for game_num in range(FLAGS.num_games):
-      returns, history = _play_game(game, bots, argv[1:])
+      returns, history, winnable1, winnable2 = _play_game(game, bots, argv[1:], oracle_bot)
       histories[" ".join(history)] += 1
       for i, v in enumerate(returns):
         overall_returns[i] += v
         if v > 0:
           overall_wins[i] += 1
+      if winnable1 == True:
+        overall_winnable[0] += 1
+      if winnable2 == True:
+        overall_winnable[1] += 1
   except (KeyboardInterrupt, EOFError):
     game_num -= 1
     print("Caught a KeyboardInterrupt, stopping early.")
@@ -219,6 +269,7 @@ def main(argv):
   print("Players:", FLAGS.player1, FLAGS.player2)
   print("Overall wins", overall_wins)
   print("Overall returns", overall_returns)
+  print("Overall winnable", overall_winnable)
 
 
 if __name__ == "__main__":
